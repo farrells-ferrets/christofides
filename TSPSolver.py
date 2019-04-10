@@ -113,6 +113,8 @@ class TSPSolver:
         odd_verts = self.getOddVerts(min_tree)
         perfect = self.perfectMatch(odd_verts, initial_matrix.copy(), min_tree)
         multigraph, num_edges = self.multigraph(min_tree, perfect)
+        if len(self.getOddVerts(multigraph)) != 0:
+            print("Uneven nodes!!!")
         print(num_edges)
         euclidGraph = self.hierholzer(multigraph)
         print(euclidGraph)
@@ -239,18 +241,17 @@ class TSPSolver:
                 x = pos // matrix.shape[0]
                 # check if both vertices are in still in contention
                 if x in vertices and y in vertices:
-                    # if a front edge already exists in the min_tree, add a back edge instead
-                    if minMatrix[x][y] != matrix[x][y]:
-                        # when a position is found, remove the two vertices from the array
+                    if minMatrix[x][y] != matrix[x][y] and minMatrix[y][x] != matrix[y][x]:
+                        #when a position is found, remove the two vertices from the array
                         vertices.remove(x)
                         vertices.remove(y)
                         newmatrix[x][y] = matrix[x][y]
-                    elif minMatrix[y][x] != matrix[y][x]:
-                        # when a position is found, remove the two vertices from the array
-                        vertices.remove(x)
-                        vertices.remove(y)
-                        newmatrix[y][x] = matrix[y][x]
-                    # once a position has been considered, mark it as infinity so that the next one can be found
+                    # elif minMatrix[y][x] != matrix[y][x]:
+                    #     #when a position is found, remove the two vertices from the array
+                    #     vertices.remove(x)
+                    #     vertices.remove(y)
+                    #     newmatrix[y][x] = matrix[y][x]
+                    #once a position has been considered, mark it as infinity so that the next one can be found
                     matrix[x][y] = math.inf
                     matrix[y][x] = math.inf
                     if self.checkPerfect(newmatrix, numvertices):
@@ -277,7 +278,7 @@ class TSPSolver:
             for j in range(newmatrix.shape[0]):
                 if newmatrix[i][j] == 0:
                     newmatrix[i][j] = np.inf
-                else:
+                elif newmatrix[i][j] != np.inf:
                     num_edges += 1
         return newmatrix, num_edges
 
