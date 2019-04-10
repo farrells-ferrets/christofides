@@ -116,7 +116,7 @@ class TSPSolver:
         if len(self.getOddVerts(multigraph)) != 0:
             print("Uneven nodes!!!")
         print(num_edges)
-        euclidGraph = self.hierholzer(multigraph)
+        euclidGraph = self.hierholzer(multigraph, num_edges)
         print(euclidGraph)
         tour, tracker = self.shortcut(euclidGraph)
         print(tracker)
@@ -170,29 +170,26 @@ class TSPSolver:
                 min = matrix[row, i]
         return minIndex
 
-    def hierholzer(self, graph):
+    def hierholzer(self, graph, num_edges):
         # Convert undirected graph into a directed graph
         self.convert_to_dir_graph(graph)
         # Initialize variables
         start_vertex = 0
         circuit = [start_vertex]
         edges_visited = []
-        # Loop through all edges that connect to the starting vertex
-        for v in range(graph.shape[0]):
-            # If an edge exists and it hasn't been visited
-            if graph[start_vertex][v] != np.inf and (start_vertex, v) not in edges_visited:
-                # Mark as visited
-                edges_visited.append((start_vertex, v))
-                edges_visited.append((v, start_vertex))
-                # Add it to the circuit
-                circuit.append(v)
-                # Initialize current path to be updated from following the edge to the next vertex
-                curr_path = []
-                self.search_new_vertex(
-                    graph, v, curr_path, edges_visited, start_vertex)
-                # add the new path to the current circuit
-                for i in range(len(curr_path)):
-                    circuit.append(curr_path[i])
+        current_node_index = 0
+        # Loop through all vertices in the circuit and make sure they don't have any unvisited edges
+        while len(edges_visited) < (num_edges*2):
+            # Initialize current path to be updated from following the edge to the next vertex
+            curr_path = []
+            self.search_new_vertex(
+                graph, circuit[current_node_index], curr_path, edges_visited, start_vertex)
+            current_node_index += 1
+            insert_index = current_node_index
+            # Add the new path to the current circuit
+            for i in range(len(curr_path)):
+                circuit.insert(insert_index, curr_path[i])
+                insert_index += 1
 
         return circuit
 
