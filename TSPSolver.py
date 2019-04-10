@@ -1,5 +1,11 @@
 #!/usr/bin/python3
 
+import itertools
+import heapq
+from scipy.sparse.csgraph import minimum_spanning_tree as min_tree
+from TSPClasses import *
+import numpy as np
+import time
 from which_pyqt import PYQT_VER
 
 if PYQT_VER == 'PYQT5':
@@ -8,13 +14,6 @@ elif PYQT_VER == 'PYQT4':
     from PyQt4.QtCore import QLineF, QPointF
 else:
     raise Exception('Unsupported Version of PyQt: {}'.format(PYQT_VER))
-
-import time
-import numpy as np
-from TSPClasses import *
-from scipy.sparse.csgraph import minimum_spanning_tree as min_tree
-import heapq
-import itertools
 
 
 class TSPSolver:
@@ -108,14 +107,27 @@ class TSPSolver:
 
     def fancy(self, time_allowance=60.0):
         results = {}
+        start_time = time.time()
         initial_matrix = self.generateInitialMatrix()
         min_tree = self.minTree(initial_matrix)
         odd_verts = self.getOddVerts(min_tree)
-        perfect = self.perfectMatch(odd_verts,initial_matrix.copy(), min_tree)
-        multigraph, num_edges = self.multigraph(min_tree,perfect)
+        perfect = self.perfectMatch(odd_verts, initial_matrix.copy(), min_tree)
+        multigraph, num_edges = self.multigraph(min_tree, perfect)
         print(num_edges)
         euclidGraph = self.hierholzer(multigraph)
         print(euclidGraph)
+        tour, tracker = self.shortcut(euclidGraph)
+        print(tracker)
+        christof_aprox = TSPSolution(tour)
+        end_time = time.time()
+        results['cost'] = christof_aprox.cost
+        results['time'] = end_time - start_time
+        results['count'] = None
+        results['soln'] = christof_aprox
+        results['max'] = None
+        results['total'] = None
+        results['pruned'] = None
+        return results
 
     def generateInitialMatrix(self):
         i = 0
@@ -174,7 +186,8 @@ class TSPSolver:
                 circuit.append(v)
                 # Initialize current path to be updated from following the edge to the next vertex
                 curr_path = []
-                self.search_new_vertex(graph, v, curr_path, edges_visited, start_vertex)
+                self.search_new_vertex(
+                    graph, v, curr_path, edges_visited, start_vertex)
                 # add the new path to the current circuit
                 for i in range(len(curr_path)):
                     circuit.append(curr_path[i])
@@ -202,41 +215,42 @@ class TSPSolver:
                 if v == starting_vertex:
                     return
                 else:
-                    self.search_new_vertex(graph, v, curr_path, edges_visited, starting_vertex)
+                    self.search_new_vertex(
+                        graph, v, curr_path, edges_visited, starting_vertex)
 
     def perfectMatch(self, vertices, matrix, minMatrix):
         newmatrix = np.zeros(matrix.shape)
         numvertices = len(vertices)
-        #mark distances to all even degree vertexes as infinity
+        # mark distances to all even degree vertexes as infinity
         for i in range(matrix.shape[0]):
             if i not in vertices:
                 matrix[i] = math.inf
                 for j in range(matrix.shape[1]):
                     matrix[j][i] = math.inf
         while len(vertices) != 0:
-            #there should always be an even number of vertices
+            # there should always be an even number of vertices
             if len(vertices) == 1:
                 print("this should never happen")
             else:
                 pos = np.argmin(matrix)
                 cols = matrix.shape[0]
-                #calculate location of smalelst edge
+                # calculate location of smalelst edge
                 y = np.mod(pos, cols)
                 x = pos // matrix.shape[0]
-                #check if both vertices are in still in contention
+                # check if both vertices are in still in contention
                 if x in vertices and y in vertices:
-                    #if a front edge already exists in the min_tree, add a back edge instead
+                    # if a front edge already exists in the min_tree, add a back edge instead
                     if minMatrix[x][y] != matrix[x][y]:
-                        #when a position is found, remove the two vertices from the array
+                        # when a position is found, remove the two vertices from the array
                         vertices.remove(x)
                         vertices.remove(y)
                         newmatrix[x][y] = matrix[x][y]
                     elif minMatrix[y][x] != matrix[y][x]:
-                        #when a position is found, remove the two vertices from the array
+                        # when a position is found, remove the two vertices from the array
                         vertices.remove(x)
                         vertices.remove(y)
                         newmatrix[y][x] = matrix[y][x]
-                    #once a position has been considered, mark it as infinity so that the next one can be found
+                    # once a position has been considered, mark it as infinity so that the next one can be found
                     matrix[x][y] = math.inf
                     matrix[y][x] = math.inf
                     if self.checkPerfect(newmatrix, numvertices):
@@ -248,9 +262,9 @@ class TSPSolver:
         return newmatrix
 
     def checkPerfect(self, matrix, numvertices):
-        #get the minimum values of each column
+        # get the minimum values of each column
         min = matrix.max(1)
-        #if vertices // 2 edges have been added, it is a perfect match
+        # if vertices // 2 edges have been added, it is a perfect match
         if np.count_nonzero(min) == numvertices // 2:
             return True
         else:
@@ -266,3 +280,15 @@ class TSPSolver:
                 else:
                     num_edges += 1
         return newmatrix, num_edges
+
+    def shortcut(self, circuit):
+        # follow Eulerian circuit adding vertices on first encounter
+        cities = self._scenario.getCities()
+        Tour = []
+        tracker = []
+        for vert in circuit:
+            if vert not in tracker:
+                tracker.append(vert)
+                Tour.append(cities[vert])
+
+        return Tour, tracker
