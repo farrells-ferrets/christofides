@@ -176,12 +176,11 @@ class TSPSolver:
                 min = matrix[row, i]
         return minIndex
 
+    # Source: https://github.com/sonph/pygraph/blob/master/pygraphalgo.py
     def hierholzer(self, graph, num_edges):
         # Convert undirected graph into a directed graph
         self.convert_to_dir_graph(graph)
         # Initialize variables
-        print("hierholzer graph:")
-        print("{}\n".format(graph))
         start_vertex = 0
         circuit = [start_vertex]
         edges_visited = []
@@ -198,6 +197,8 @@ class TSPSolver:
             for i in range(len(curr_path)):
                 circuit.insert(insert_index, curr_path[i])
                 insert_index += 1
+            if current_node_index >= len(circuit):
+                break
 
         return circuit
 
