@@ -6,7 +6,9 @@ from scipy.sparse.csgraph import minimum_spanning_tree as min_tree
 from TSPClasses import *
 import numpy as np
 import time
+from munkres import Munkres
 from which_pyqt import PYQT_VER
+
 
 if PYQT_VER == 'PYQT5':
     from PyQt5.QtCore import QLineF, QPointF
@@ -110,22 +112,33 @@ class TSPSolver:
         start_time = time.time()
         initial_matrix = self.generateInitialMatrix()
         print("initial matrix:")
-        print("{}\n".format(initial_matrix))
+        print(time.time()-start_time)
+        # print("{}\n".format(initial_matrix))
         min_tree = self.minTree(initial_matrix)
         print("min_tree:")
-        print("{}\n".format(min_tree))
+        print(time.time()-start_time)
+        # print("{}\n".format(min_tree))
         odd_verts = self.getOddVerts(min_tree)
-        perfect = self.perfectMatch(odd_verts, initial_matrix.copy(), min_tree)
+        print("oddverts:")
+        print(time.time()-start_time)
+        print("percent odd" + str(len(odd_verts) * 100 / initial_matrix.shape[0]))
+        # perfect = self.perfectMatchNetwork(odd_verts,initial_matrix,min_tree)
+        perfect = self.perfectMatchGreedy(odd_verts, initial_matrix.copy(), min_tree)
+        print("perfectGreedy:")
+        print(time.time()-start_time)
         multigraph, num_edges = self.multigraph(min_tree, perfect)
         if len(self.getOddVerts(multigraph)) != 0:
             print("Uneven nodes!!!")
         print("multigraph:")
-        print("{}\n".format(multigraph))
-        print(num_edges)
+        print(time.time()-start_time)
+        # print("{}\n".format(multigraph))
+        # print(num_edges)
         euclidGraph = self.hierholzer(multigraph, num_edges)
-        print(euclidGraph)
+        print("euclidian:")
+        print(time.time()-start_time)
+        # print(euclidGraph)
         tour, tracker = self.shortcut(euclidGraph)
-        print(tracker)
+        # print(tracker)
         christof_aprox = TSPSolution(tour)
         end_time = time.time()
         results['cost'] = christof_aprox.cost
@@ -180,8 +193,8 @@ class TSPSolver:
         # Convert undirected graph into a directed graph
         self.convert_to_dir_graph(graph)
         # Initialize variables
-        print("hierholzer graph:")
-        print("{}\n".format(graph))
+        # print("hierholzer graph:")
+        # print("{}\n".format(graph))
         start_vertex = 0
         circuit = [start_vertex]
         edges_visited = []
@@ -225,7 +238,72 @@ class TSPSolver:
                     self.search_new_vertex(
                         graph, v, curr_path, edges_visited, starting_vertex)
 
-    def perfectMatch(self, vertices, matrix, minMatrix):
+
+    def perfectMatchNetwork(self, vertices, matrix, min_matrix):
+        # for i in range(matrix.shape[0]):
+            # for j in range(matrix.shape[0]):
+            #     if min_matrix[i][j] != 0 or min_matrix[j][i] != 0:
+            #         matrix[i][j] = np.inf
+        newmatrix = np.zeros(min_matrix.shape)
+        bipartite_set = [set(i) for i in itertools.combinations(set(vertices), len(vertices) // 2)]
+        bipartite_graphs = self.bipartite_Graph(matrix, bipartite_set, vertices)
+        indexes = self.min_Munkres(matrix, bipartite_graphs)
+        for pair in indexes:
+            newmatrix[pair[0]][pair[1]] = matrix[pair[0]][pair[1]]
+        return newmatrix
+
+    def bipartite_Graph(self, M, bipartite_set, odd_vertices):
+        """
+        """
+        bipartite_graphs = []
+        vertex_sets = []
+        for vertex_set1 in bipartite_set:
+            vertex_set1 = list(sorted(vertex_set1))
+            vertex_set2 = []
+            for vertex in odd_vertices:
+                if vertex not in vertex_set1:
+                    vertex_set2.append(vertex)
+            matrix = [[np.inf for j in range(len(vertex_set2))] for i in range(len(vertex_set1))]
+            for i in range(len(vertex_set1)):
+                for j in range(len(vertex_set2)):
+                    if vertex_set1[i] < vertex_set2[j]:
+                        matrix[i][j] = M[vertex_set1[i]][vertex_set2[j]]
+                    else:
+                        matrix[i][j] = M[vertex_set2[j]][vertex_set1[i]]
+            bipartite_graphs.append(matrix)
+            vertex_sets.append([vertex_set1, vertex_set2])
+        return [bipartite_graphs, vertex_sets]
+
+    def min_Munkres(self,M, bipartite_graphs):
+        """Implements the Hungarian problem or the Assignment problem to
+        find Minimum Cost Perfect Matching(MCPM).
+
+        """
+        m = Munkres()
+        minimum = np.inf
+        for index, bipartite_graph in enumerate(bipartite_graphs[0]):
+            Munkres_indexes = m.compute(bipartite_graph)
+            cost = self.Munkres_cost(Munkres_indexes, bipartite_graph)
+            if cost < minimum:
+                minimum = cost
+                min_index = index
+                min_Munkres_indexes = Munkres_indexes
+        Munkres_indexes = [[] for i in range(len(min_Munkres_indexes))]
+        for index, vertex_set in enumerate(min_Munkres_indexes):
+            Munkres_indexes[index].append(bipartite_graphs[1][min_index][0][vertex_set[0]])
+            Munkres_indexes[index].append(bipartite_graphs[1][min_index][1][vertex_set[1]])
+        return Munkres_indexes
+
+    def Munkres_cost(self, indexes, bipartite_graph):
+        """Returns cost of the edges in Munkres_indexes
+
+        """
+        cost = 0
+        for index in indexes:
+            cost = cost + bipartite_graph[index[0]][index[1]]
+        return cost
+
+    def perfectMatchGreedy(self, vertices, matrix, minMatrix):
         newmatrix = np.zeros(matrix.shape)
         numvertices = len(vertices)
         # mark distances to all even degree vertexes as infinity
@@ -241,27 +319,22 @@ class TSPSolver:
             else:
                 pos = np.argmin(matrix)
                 cols = matrix.shape[0]
-                # calculate location of smalelst edge
+                # calculate location of smallest edge
                 y = np.mod(pos, cols)
                 x = pos // matrix.shape[0]
                 # check if both vertices are in still in contention
                 if x in vertices and y in vertices:
-                    if minMatrix[x][y] == 0 and minMatrix[y][x] == 0:
-                        print("adding match edge --> y (col) = {}, x (row) = {}".format(y, x))
-                        print("{}\n".format(matrix))
+                    if minMatrix[x][y] == 0 and minMatrix[y][x] == 0 and matrix[x][y] != np.inf:
+                        # print("adding match edge --> y (col) = {}, x (row) = {}".format(y, x))
+                        # print("{}\n".format(matrix))
                         #when a position is found, remove the two vertices from the array
                         vertices.remove(x)
                         vertices.remove(y)
                         newmatrix[x][y] = matrix[x][y]
-                    # elif minMatrix[y][x] != matrix[y][x]:
-                    #     #when a position is found, remove the two vertices from the array
-                    #     vertices.remove(x)
-                    #     vertices.remove(y)
-                    #     newmatrix[y][x] = matrix[y][x]
                     #once a position has been considered, mark it as infinity so that the next one can be found
                     matrix[x][y] = math.inf
                     matrix[y][x] = math.inf
-                    if not vertices and self.checkPerfect(newmatrix, numvertices):
+                    if not vertices:
                         return newmatrix
                 else:
                     matrix[x][y] = math.inf
