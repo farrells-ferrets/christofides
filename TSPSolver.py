@@ -109,12 +109,18 @@ class TSPSolver:
         results = {}
         start_time = time.time()
         initial_matrix = self.generateInitialMatrix()
+        print("initial matrix:")
+        print("{}\n".format(initial_matrix))
         min_tree = self.minTree(initial_matrix)
+        print("min_tree:")
+        print("{}\n".format(min_tree))
         odd_verts = self.getOddVerts(min_tree)
         perfect = self.perfectMatch(odd_verts, initial_matrix.copy(), min_tree)
         multigraph, num_edges = self.multigraph(min_tree, perfect)
         if len(self.getOddVerts(multigraph)) != 0:
             print("Uneven nodes!!!")
+        print("multigraph:")
+        print("{}\n".format(multigraph))
         print(num_edges)
         euclidGraph = self.hierholzer(multigraph, num_edges)
         print(euclidGraph)
@@ -174,6 +180,8 @@ class TSPSolver:
         # Convert undirected graph into a directed graph
         self.convert_to_dir_graph(graph)
         # Initialize variables
+        print("hierholzer graph:")
+        print("{}\n".format(graph))
         start_vertex = 0
         circuit = [start_vertex]
         edges_visited = []
@@ -238,7 +246,9 @@ class TSPSolver:
                 x = pos // matrix.shape[0]
                 # check if both vertices are in still in contention
                 if x in vertices and y in vertices:
-                    if minMatrix[x][y] != matrix[x][y] and minMatrix[y][x] != matrix[y][x]:
+                    if minMatrix[x][y] == 0 and minMatrix[y][x] == 0:
+                        print("adding match edge --> y (col) = {}, x (row) = {}".format(y, x))
+                        print("{}\n".format(matrix))
                         #when a position is found, remove the two vertices from the array
                         vertices.remove(x)
                         vertices.remove(y)
@@ -251,7 +261,7 @@ class TSPSolver:
                     #once a position has been considered, mark it as infinity so that the next one can be found
                     matrix[x][y] = math.inf
                     matrix[y][x] = math.inf
-                    if self.checkPerfect(newmatrix, numvertices):
+                    if not vertices and self.checkPerfect(newmatrix, numvertices):
                         return newmatrix
                 else:
                     matrix[x][y] = math.inf
