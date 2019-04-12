@@ -177,6 +177,48 @@ class City:
         return int(math.ceil(cost * self.MAP_SCALE))
 
 
+class Node:
+    def __init__(self, G, i, j, path, cities_visited):
+        # Instantiate reduced_matrix
+        self.reduced_matrix = G.copy()
+
+        # Instantiate cost
+        self.cost = np.inf
+        self.priority = 0
+
+        # Set the number at which this city was visited
+        self.visited_num = cities_visited
+
+        # Set the column at j, row at i, and cell at (j,i) all to infinity (if this is not the first city visited)
+        if cities_visited > 0:
+            for i1 in range(len(self.reduced_matrix)):
+                self.reduced_matrix[i1, j] = np.inf
+            for j1 in range(len(self.reduced_matrix[i])):
+                self.reduced_matrix[i, j1] = np.inf
+
+        self.reduced_matrix[j, i] = np.inf
+        # Set city number
+        self.city_num = j
+
+        # Instantiate path and add city to it
+        self.path = path.copy()
+        self.path = np.append(self.path, self.city_num)
+
+    def set_cost(self, cost):
+        self.cost = cost
+
+        # Set priority
+        if cost > 0 and self.visited_num > 0:
+            temp = self.cost / (self.visited_num * self.visited_num * self.visited_num)
+            self.priority = temp
+
+    def __lt__(self, other):
+        return self.priority < other.priority
+
+    def __gt__(self, other):
+        return self.priority > other.priority
+
+
 # Blocks off a column for a matrix
 def blockCol(matrix, col):
     returnMatrix = matrix[:, :]

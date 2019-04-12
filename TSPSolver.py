@@ -8,7 +8,7 @@ import numpy as np
 import time
 from munkres import Munkres
 from which_pyqt import PYQT_VER
-from Christofides import christofides as cf
+from heapq import *
 
 
 if PYQT_VER == 'PYQT5':
@@ -105,8 +105,202 @@ class TSPSolver:
         results['pruned'] = None
         return results
 
-    def branchAndBound(self, time_allowance=60.0):
-        pass
+    def branchAndBound(self, time_allowance=120.0):
+        cities = self._scenario.getCities()
+        ncities = len(cities)
+        # Get graph from cities
+        G = self.create_cities_matrix()
+        # Reduce initial matrix and get reduction cost
+        reduced_matrix, cost = self.get_cost(G)
+        # Initialize path
+        path = np.array([], dtype=int)
+        # Initialize root
+        root = Node(reduced_matrix, 0, -1, path, 0)
+        root.path = path
+        root.set_cost(cost)
+        # Initialize Priority Queue and push root onto it
+        pq = []
+        heappush(pq, root)
+        # Initialize best solution
+        best_solution = None
+        best_cost = np.inf
+        # Initialize tracking variables
+        nodes_created = 0
+        nodes_pruned = 0
+        max_pq_size = 0
+        bssf_updates = 0
+
+        # Track start time as to not go over time allowance
+        start_time = time.time()
+        # While the Priority Queue is not empty and we are within the time allowance
+        while len(pq) > 0 and time.time() - start_time < time_allowance:
+            # Check for max Priority Queue size
+            if max_pq_size < len(pq):
+                max_pq_size = len(pq)
+            # Pop from Priority Queue and examine Node
+            current_node = heappop(pq)
+
+            # If cost is greater than the best solution, prune
+            if current_node.cost >= best_cost:
+                nodes_pruned = nodes_pruned + 1
+                continue
+
+            # Check if Node it a leaf
+            if current_node.visited_num == ncities:
+                # If node is a leaf:
+                # Set it to best solution if its cost is less than the current best solution or no best solution exists yet
+                if best_solution is None or current_node.cost < best_solution.cost:
+                    best_solution = current_node
+                    best_cost = current_node.cost
+                    bssf_updates = bssf_updates + 1
+                    continue
+
+            # Loop through all paths connected to current city where the cost is not infinity
+            # This excludes cities that have already been visited
+            i = current_node.city_num
+            for j in range(ncities):
+                if current_node.reduced_matrix[i, j] != np.inf:
+                    # If the cost of the current city plus the path to the next one is more than the best solution, prune
+                    if current_node.cost + current_node.reduced_matrix[i, j] >= best_cost:
+                        nodes_pruned = nodes_pruned + 1
+                        continue
+
+                    # Create Node for current city
+                    next_node = Node(current_node.reduced_matrix, i, j, current_node.path, current_node.visited_num + 1)
+                    nodes_created = nodes_created + 1
+                    # Create reduced matrix for current Node
+                    new_reduced_matrix, cost = self.get_cost(next_node.reduced_matrix)
+                    next_node.reduced_matrix = new_reduced_matrix
+                    # Set cost and priority for current Node
+                    next_node.set_cost(current_node.cost + current_node.reduced_matrix[i, j] + cost)
+
+                    # If cost of current Node is greater than the best solution, prune
+                    if next_node.cost >= best_cost:
+                        nodes_pruned = nodes_pruned + 1
+                        continue
+
+                    # If it makes it here, Node is still valid
+                    # Push Node onto Priority Queue
+                    heappush(pq, next_node)
+
+        # Populate results
+        results = {}
+        foundTour = False
+        count = 0
+        route = []
+        bssf = None
+        # Now build the route using the BSSF
+        if best_solution is not None:
+            for i in range(ncities):
+                route.append(cities[best_solution.path[i]])
+            count += 1
+            bssf = TSPSolution(route)
+            if bssf.cost < np.inf:
+                # Found a valid route
+                foundTour = True
+
+        end_time = time.time()
+        results['cost'] = bssf.cost if count > 0 else math.inf
+        results['time'] = end_time - start_time
+        results['count'] = bssf_updates
+        results['soln'] = bssf
+        results['max'] = max_pq_size
+        results['total'] = nodes_created
+        results['pruned'] = nodes_pruned
+        print("Done!")
+        return results
+
+    def get_cost(self, G):
+        # Copy the matrix passed in so that it doesn't affect other states
+        reduced_matrix = G.copy()
+
+        # Reduce rows
+        reduced_matrix, row_cost = self.row_reduction(reduced_matrix)
+        # Reduce columns
+        reduced_matrix, col_cost = self.column_reduction(reduced_matrix)
+
+        # Return reduced matrix and the cost to reduce the matrix
+        return reduced_matrix, (row_cost + col_cost)
+
+    def row_reduction(self, G):
+        # Initialize variables
+        cities = self._scenario.getCities()
+        ncities = len(cities)
+        reduced_matrix = G
+        infinity = np.inf
+
+        # Initialize values from reduction to be infinity
+        reduced_row = np.full(ncities, infinity)
+        # Get the smallest number from each row
+        for i in range(ncities):
+            for j in range(ncities):
+                if reduced_matrix[i, j] < reduced_row[i]:
+                    reduced_row[i] = reduced_matrix[i][j]
+                    # If 0 is in row, no need to check the rest of the row
+                    if reduced_row[i] == 0:
+                        break
+
+        # Subtract the smallest number from each row
+        for i in range(ncities):
+            # If 0 or infinity, no need to subtract from row
+            if reduced_row[i] == infinity or reduced_row[i] == 0:
+                reduced_row[i] = 0
+            else:
+                new_row = np.subtract(reduced_matrix[i], reduced_row[i])
+                reduced_matrix[i] = new_row
+
+        # Return the matrix with the reduced values and the sum of all smallest values from each row
+        return reduced_matrix, np.sum(reduced_row)
+
+    def column_reduction(self, G):
+        # Initialize variables
+        cities = self._scenario.getCities()
+        ncities = len(cities)
+        reduced_matrix = G
+        infinity = np.inf
+
+        # Initialize values from reduction to be infinity
+        reduced_col = np.full(ncities, infinity)
+        # Get the smallest number from each column
+        for i in range(ncities):
+            for j in range(ncities):
+                if reduced_col[j] > reduced_matrix[i, j]:
+                    reduced_col[j] = reduced_matrix[i, j]
+
+        # Subtract the smallest number from each column
+        for i in range(ncities):
+            for j in range(ncities):
+                # If 0 or infinity, no need to subtract from cell
+                if reduced_col[j] == 0 or reduced_col[j] == infinity:
+                    reduced_col[j] = 0
+                else:
+                    reduced_matrix[i, j] = reduced_matrix[i, j] - reduced_col[j]
+
+        # Return the matrix with the reduced values and the sum of all smallest values from each column
+        return reduced_matrix, np.sum(reduced_col)
+
+    def create_cities_matrix(self):
+        cities = self._scenario.getCities()
+        ncities = len(cities)
+
+        # Initialize cities matrix ncities x ncities with infinity in all cells
+        cities_matrix = []
+        for i in range(ncities):
+            row = []
+            for j in range(ncities):
+                row.append(np.inf)
+            cities_matrix.append(row)
+
+        # Populate the matrix by getting the cost of all edges
+        for i in range(ncities):
+            for j in range(ncities):
+                city1 = cities[i]
+                city2 = cities[j]
+                cities_matrix[i][j] = city1.costTo(city2)
+
+        # Convert to NumPy array
+        return_array = np.array(cities_matrix)
+        return return_array
 
     def generateInitialMatrixBranch(self):
         i = 0
