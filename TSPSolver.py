@@ -8,6 +8,7 @@ import numpy as np
 import time
 from munkres import Munkres
 from which_pyqt import PYQT_VER
+from Christofides import christofides as cf
 
 
 if PYQT_VER == 'PYQT5':
@@ -107,6 +108,18 @@ class TSPSolver:
     def branchAndBound(self, time_allowance=60.0):
         pass
 
+    def generateInitialMatrixBranch(self):
+        i = 0
+        j = 0
+        cities = self._scenario.getCities()
+        ncities = len(cities)
+        matrix = np.empty([ncities, ncities])
+        for i in range(ncities):
+            for j in range(i,ncities):
+                matrix[i, j] = cities[i].costTo(cities[j])
+        return matrix
+
+
     def fancy(self, time_allowance=60.0):
         results = {}
         start_time = time.time()
@@ -122,11 +135,13 @@ class TSPSolver:
         print("oddverts:")
         print(time.time()-start_time)
         print("percent odd" + str(len(odd_verts) * 100 / initial_matrix.shape[0]))
-        # perfect = self.perfectMatchNetwork(odd_verts,initial_matrix,min_tree)
-        perfect = self.perfectMatchGreedy(odd_verts, initial_matrix.copy(), min_tree)
+        perfect = self.perfectMatchNetwork(odd_verts,initial_matrix,min_tree)
+        perfectGreedy = self.perfectMatchGreedy(odd_verts, initial_matrix.copy(), min_tree)
         print("perfectGreedy:")
         print(time.time()-start_time)
-        multigraph, num_edges = self.multigraph(min_tree, perfect)
+        multigraph = self.multigraph(min_tree, perfect)
+        self.convert_to_dir_graph(multigraph)
+        num_edges = self.getEdges(multigraph)
         if len(self.getOddVerts(multigraph)) != 0:
             print("Uneven nodes!!!")
         print("multigraph:")
@@ -199,7 +214,7 @@ class TSPSolver:
         edges_visited = []
         current_node_index = 0
         # Loop through all vertices in the circuit and make sure they don't have any unvisited edges
-        while len(edges_visited) < (num_edges*2):
+        while len(edges_visited) < num_edges:
             # Initialize current path to be updated from following the edge to the next vertex
             curr_path = []
             self.search_new_vertex(
@@ -354,14 +369,11 @@ class TSPSolver:
 
     def multigraph(self, matrix, perfectMatrix):
         newmatrix = matrix + perfectMatrix
-        num_edges = 0
         for i in range(newmatrix.shape[0]):
             for j in range(newmatrix.shape[0]):
                 if newmatrix[i][j] == 0:
                     newmatrix[i][j] = np.inf
-                elif newmatrix[i][j] != np.inf:
-                    num_edges += 1
-        return newmatrix, num_edges
+        return newmatrix
 
     def shortcut(self, circuit):
         # follow Eulerian circuit adding vertices on first encounter
@@ -374,3 +386,11 @@ class TSPSolver:
                 Tour.append(cities[vert])
 
         return Tour, tracker
+
+    def getEdges(self, matrix):
+        toReturn = 0
+        for i in range(matrix.shape[0]):
+            for j in range(matrix.shape[0]):
+                if matrix[i][j] != np.inf:
+                    toReturn += 1
+        return toReturn
