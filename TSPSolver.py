@@ -302,8 +302,7 @@ class TSPSolver:
         return_array = np.array(cities_matrix)
         return return_array
 
-
-def generateInitialMatrixBranch(self):
+    def generateInitialMatrixBranch(self):
         i = 0
         j = 0
         cities = self._scenario.getCities()
@@ -334,7 +333,7 @@ def generateInitialMatrixBranch(self):
         print("perfectGreedy:")
         print(time.time()-start_time)
         multigraph, num_edges = self.multigraph(min_tree, perfect)
-        self.convert_to_dir_graph(multigraph)
+        # self.convert_to_dir_graph(multigraph)
         num_edges = self.getEdges(multigraph)
         if len(self.getOddVerts(multigraph)) != 0:
             print("Uneven nodes!!!")
@@ -342,7 +341,7 @@ def generateInitialMatrixBranch(self):
         print(time.time()-start_time)
         # print("{}\n".format(multigraph))
         # print(num_edges)
-        euclidGraph = self.hierholzer(multigraph, num_edges)
+        euclidGraph = self.hierholzer(multigraph, num_edges, len(initial_matrix))
         print("euclidian:")
         print(time.time()-start_time)
         # print(euclidGraph)
@@ -399,20 +398,18 @@ def generateInitialMatrixBranch(self):
         return minIndex
 
     # Source: https://github.com/sonph/pygraph/blob/master/pygraphalgo.py
-    def hierholzer(self, graph, num_edges):
-        # Convert undirected graph into a directed graph
-        self.convert_to_dir_graph(graph)
+    def hierholzer(self, graph, num_edges, node_count):
         # Initialize variables
         start_vertex = 0
         circuit = [start_vertex]
-        edges_visited = []
+        edges_visited = 0
         current_node_index = 0
         # Loop through all vertices in the circuit and make sure they don't have any unvisited edges
-        while len(edges_visited) < num_edges:
+        while edges_visited < num_edges:
             # Initialize current path to be updated from following the edge to the next vertex
             curr_path = []
-            self.search_new_vertex(
-                graph, circuit[current_node_index], curr_path, edges_visited, start_vertex)
+            edges_visited = self.search_new_vertex(
+                graph, circuit[current_node_index], curr_path, start_vertex, node_count, edges_visited)
             current_node_index += 1
             insert_index = current_node_index
             # Add the new path to the current circuit
@@ -431,22 +428,27 @@ def generateInitialMatrixBranch(self):
                 if graph[i, j] != np.inf and graph[i, j] != graph[j, i]:
                     graph[j, i] = graph[i, j]
 
-    def search_new_vertex(self, graph, u, curr_path, edges_visited, starting_vertex):
+    def search_new_vertex(self, graph, u, curr_path, starting_vertex, node_count, edges_visited):
         # Loop through all edges that connect to the current vertex (u)
-        for v in range(graph.shape[0]):
+        for v in range(node_count):
+            small = u
+            big = v
+            if small > big:
+                small = v
+                big = u
             # If an edge exists and it hasn't been visited
-            if graph[u][v] != np.inf and (u, v) not in edges_visited:
+            if (small, big) in graph and graph[(small, big)] > 0:
                 # Mark as visited
-                edges_visited.append((u, v))
-                edges_visited.append((v, u))
+                edges_visited += 1
+                graph[(small, big)] -= 1
                 # Add it to the current path
                 curr_path.append(v)
                 # If we have completed the circuit, return; else, keep searching until the circuit is completed
                 if v == starting_vertex:
-                    return
+                    return edges_visited
                 else:
-                    self.search_new_vertex(
-                        graph, v, curr_path, edges_visited, starting_vertex)
+                    edges_visited = self.search_new_vertex(
+                        graph, v, curr_path, starting_vertex, node_count, edges_visited)
 
 
     def perfectMatchNetwork(self, vertices, matrix, min_matrix):
