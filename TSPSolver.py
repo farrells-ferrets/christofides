@@ -66,7 +66,7 @@ class TSPSolver:
         start_time = time.time()
         start_node = 0
         # Loop until a tour is found or we time out
-        while not foundTour and time.time() - start_time < time_allowance and start_node < ncities:
+        while time.time() - start_time < time_allowance and start_node < ncities:
             badTour = False
             current_matrix = self.generateInitialMatrix()
             route = []
@@ -88,13 +88,17 @@ class TSPSolver:
                 current_matrix = blockCol(current_matrix, current_node)
             # create a TSPSolution based on our tour, if we had a bad tour or if the cost is infinite then it is not valid
             # so throw it out and try the next node as our starting position
-            bssf = TSPSolution(route)
+            cur_tour = TSPSolution(route)
             if badTour:
-                bssf.cost = np.inf
-            if bssf.cost < np.inf:
-                foundTour = True
-                self._global_bssf = bssf
+                cur_tour.cost = np.inf
+            if bssf is None:
+                if cur_tour.cost < np.inf:
+                    bssf = cur_tour
+            else:
+                if cur_tour.cost < bssf.cost:
+                    bssf = cur_tour
             start_node += 1
+        self._global_bssf = bssf
         end_time = time.time()
         results['cost'] = bssf.cost if foundTour else np.inf
         results['time'] = end_time - start_time
