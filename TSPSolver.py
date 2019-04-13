@@ -105,7 +105,7 @@ class TSPSolver:
         results['pruned'] = None
         return results
 
-    def branchAndBound(self, time_allowance=120.0):
+    def branchAndBound(self, time_allowance=60.0):
         cities = self._scenario.getCities()
         ncities = len(cities)
         # Get graph from cities
@@ -302,7 +302,8 @@ class TSPSolver:
         return_array = np.array(cities_matrix)
         return return_array
 
-    def generateInitialMatrixBranch(self):
+
+def generateInitialMatrixBranch(self):
         i = 0
         j = 0
         cities = self._scenario.getCities()
@@ -312,7 +313,6 @@ class TSPSolver:
             for j in range(i,ncities):
                 matrix[i, j] = cities[i].costTo(cities[j])
         return matrix
-
 
     def fancy(self, time_allowance=60.0):
         results = {}
@@ -330,10 +330,10 @@ class TSPSolver:
         print(time.time()-start_time)
         print("percent odd" + str(len(odd_verts) * 100 / initial_matrix.shape[0]))
         perfect = self.perfectMatchNetwork(odd_verts,initial_matrix,min_tree)
-        perfectGreedy = self.perfectMatchGreedy(odd_verts, initial_matrix.copy(), min_tree)
+        # perfectGreedy = self.perfectMatchGreedy(odd_verts, initial_matrix.copy(), min_tree)
         print("perfectGreedy:")
         print(time.time()-start_time)
-        multigraph = self.multigraph(min_tree, perfect)
+        multigraph, num_edges = self.multigraph(min_tree, perfect)
         self.convert_to_dir_graph(multigraph)
         num_edges = self.getEdges(multigraph)
         if len(self.getOddVerts(multigraph)) != 0:
@@ -513,7 +513,7 @@ class TSPSolver:
             cost = cost + bipartite_graph[index[0]][index[1]]
         return cost
 
-    def perfectMatchGreedy(self, vertices, matrix, minMatrix):
+    def perfectMatchGreedy(self, vertices, matrix):
         newmatrix = np.zeros(matrix.shape)
         numvertices = len(vertices)
         # mark distances to all even degree vertexes as infinity
@@ -534,7 +534,8 @@ class TSPSolver:
                 x = pos // matrix.shape[0]
                 # check if both vertices are in still in contention
                 if x in vertices and y in vertices:
-                    if minMatrix[x][y] == 0 and minMatrix[y][x] == 0 and matrix[x][y] != np.inf:
+                    #removed check for minMatrix
+                    if matrix[x][y] != np.inf:
                         # print("adding match edge --> y (col) = {}, x (row) = {}".format(y, x))
                         # print("{}\n".format(matrix))
                         #when a position is found, remove the two vertices from the array
@@ -562,12 +563,26 @@ class TSPSolver:
             return False
 
     def multigraph(self, matrix, perfectMatrix):
-        newmatrix = matrix + perfectMatrix
-        for i in range(newmatrix.shape[0]):
-            for j in range(newmatrix.shape[0]):
-                if newmatrix[i][j] == 0:
-                    newmatrix[i][j] = np.inf
-        return newmatrix
+        returnedDict = {}
+        numEdges = 0
+        for i in range(matrix.shape[0]):
+            for j in range(matrix.shape[0]):
+                if i < j:
+                    start = i
+                    end = j
+                else:
+                    start = j
+                    end = i
+                if matrix[i][j] != 0 or perfectMatrix[i][j] != 0:
+                    if (start, end) not in returnedDict:
+                        returnedDict[(start, end)] = 1
+                    else:
+                        returnedDict[(start, end)] += 1
+                    if matrix[i][j] != 0 and perfectMatrix[i][j] != 0:
+                        returnedDict[(start, end)] += 1
+                        numEdges += 1
+                    numEdges += 1
+        return returnedDict, numEdges
 
     def shortcut(self, circuit):
         # follow Eulerian circuit adding vertices on first encounter
