@@ -338,9 +338,9 @@ class TSPSolver:
         print(time.time()-start_time)
         multigraph, num_edges = self.multigraph(min_tree, perfect)
         # self.convert_to_dir_graph(multigraph)
-        num_edges = self.getEdges(multigraph)
-        if len(self.getOddVerts(multigraph)) != 0:
-            print("Uneven nodes!!!")
+        # num_edges = self.getEdges(multigraph)
+        # if len(self.getOddVerts(multigraph)) != 0:
+            # print("Uneven nodes!!!")
         print("multigraph:")
         print(time.time()-start_time)
         # print("{}\n".format(multigraph))
@@ -348,9 +348,9 @@ class TSPSolver:
         euclidGraph = self.hierholzer(multigraph, num_edges, len(initial_matrix))
         print("euclidian:")
         print(time.time()-start_time)
-        # print(euclidGraph)
+        print(euclidGraph)
         tour, tracker = self.shortcut(euclidGraph)
-        # print(tracker)
+        print(tracker)
         christof_aprox = TSPSolution(tour)
         end_time = time.time()
         results['cost'] = christof_aprox.cost
@@ -409,7 +409,7 @@ class TSPSolver:
         edges_visited = 0
         current_node_index = 0
         # Loop through all vertices in the circuit and make sure they don't have any unvisited edges
-        while edges_visited < num_edges:
+        while edges_visited <= num_edges:
             # Initialize current path to be updated from following the edge to the next vertex
             curr_path = []
             edges_visited = self.search_new_vertex(
@@ -449,11 +449,12 @@ class TSPSolver:
                 curr_path.append(v)
                 # If we have completed the circuit, return; else, keep searching until the circuit is completed
                 if v == starting_vertex:
-                    return edges_visited
+                    break
                 else:
                     edges_visited = self.search_new_vertex(
                         graph, v, curr_path, starting_vertex, node_count, edges_visited)
-
+                    break
+        return edges_visited
 
     def perfectMatchNetwork(self, vertices, matrix, min_matrix):
         # for i in range(matrix.shape[0]):
