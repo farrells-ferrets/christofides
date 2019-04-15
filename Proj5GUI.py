@@ -243,9 +243,9 @@ class Proj5GUI( QMainWindow ):
 	def addCities( self ):
 		cities = self._scenario.getCities()
 		self.view.clearEdges()
-		for city in cities:
-		   self.view.addLabel( QPointF(city._x, city._y), city._name, \
-							   labelColor=(128,128,128), xoffset=10.0 )
+		# for city in cities:
+		#    self.view.addLabel( QPointF(city._x, city._y), city._name, \
+		# 					   labelColor=(128,128,128), xoffset=10.0 )
 
 	def generateClicked(self):
 		self.generateNetwork()
@@ -301,8 +301,15 @@ class Proj5GUI( QMainWindow ):
 		self.statusBar.showMessage('Processing...')
 		#self.view.repaint()
 		#app.processEvents()
-		solve_func = 'self.solver.'+self.ALGORITHMS[self.algDropDown.currentIndex()][1]
-		results = eval(solve_func)(time_allowance=max_time )
+		for i in range(5):
+			self.randSeedClicked()
+			self.generateClicked()
+			# solve_func = 'self.solver.'+self.ALGORITHMS[self.algDropDown.currentIndex()][1]
+			results = self.solver.fancy(time_allowance=max_time )
+			# solve_func = 'self.solver.'+self.ALGORITHMS[self.algDropDown.currentIndex()][1]
+			results = self.solver.greedy(time_allowance=max_time )
+			if len(self._scenario.getCities()) <= 30:
+				results = self.solver.branchAndBound(time_allowance=max_time)
 		if results:
 			self.statusBar.showMessage('')
 			self.numSolutions.setText( '{}'.format(results['count']) )

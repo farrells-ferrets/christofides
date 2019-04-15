@@ -9,6 +9,7 @@ import time
 from munkres import Munkres
 from which_pyqt import PYQT_VER
 from heapq import *
+import sys
 
 
 if PYQT_VER == 'PYQT5':
@@ -104,6 +105,7 @@ class TSPSolver:
             start_node += 1
         self._global_bssf = bssf
         end_time = time.time()
+        print("greedy", len(self._scenario.getCities()), end_time - self.start_time, bssf.cost)
         results['cost'] = bssf.cost if foundTour else np.inf
         results['time'] = end_time - start_time
         results['count'] = None
@@ -208,6 +210,7 @@ class TSPSolver:
                 foundTour = True
 
         end_time = time.time()
+        print("branch", len(self._scenario.getCities()), " ", end_time - self.start_time, " ", bssf.cost)
         results['cost'] = bssf.cost if count > 0 else math.inf
         results['time'] = end_time - start_time
         results['count'] = bssf_updates
@@ -215,7 +218,6 @@ class TSPSolver:
         results['max'] = max_pq_size
         results['total'] = nodes_created
         results['pruned'] = nodes_pruned
-        print("Done!")
         return results
 
     def get_cost(self, G):
@@ -322,42 +324,44 @@ class TSPSolver:
         return matrix
 
     def fancy(self, time_allowance=60.0):
+        sys.setrecursionlimit(1500)
         results = {}
         self.start_time = time.time()
         self.time_allowance = time_allowance
         initial_matrix = self.generateInitialMatrix()
-        print("initial matrix:")
-        print(time.time()-self.start_time)
+        # print("initial matrix:")
+        # print(time.time()-self.start_time)
         # print("{}\n".format(initial_matrix))
         min_tree = self.minTree(initial_matrix)
-        print("min_tree:")
-        print(time.time()-self.start_time)
+        # print("min_tree:")
+        # print(time.time()-self.start_time)
         # print("{}\n".format(min_tree))
         odd_verts = self.getOddVerts(min_tree)
-        print("oddverts:")
-        print(time.time()-self.start_time)
-        print("percent odd" + str(len(odd_verts) * 100 / initial_matrix.shape[0]))
+        # print("oddverts:")
+        # print(time.time()-self.start_time)
+        # print("percent odd" + str(len(odd_verts) * 100 / initial_matrix.shape[0]))
         # perfect = self.perfectMatchNetwork(odd_verts,initial_matrix,min_tree)
         perfect = self.perfectMatchGreedy(odd_verts, initial_matrix.copy())
-        print("perfectGreedy:")
-        print(time.time()-self.start_time)
+        # print("perfectGreedy:")
+        # print(time.time()-self.start_time)
         multigraph, num_edges = self.multigraph(min_tree, perfect)
         # self.convert_to_dir_graph(multigraph)
         # num_edges = self.getEdges(multigraph)
         # if len(self.getOddVerts(multigraph)) != 0:
             # print("Uneven nodes!!!")
-        print("multigraph:")
-        print(time.time()-self.start_time)
+        # print("multigraph:")
+        # print(time.time()-self.start_time)
         # print("{}\n".format(multigraph))
         # print(num_edges)
         euclidGraph = self.hierholzer(multigraph, num_edges, len(initial_matrix))
-        print("euclidian:")
-        print(time.time()-self.start_time)
-        print(euclidGraph)
+        # print("euclidian:")
+        # print(time.time()-self.start_time)
+        # print(euclidGraph)
         tour, tracker = self.shortcut(euclidGraph)
-        print(tracker)
+        # print(tracker)
         christof_aprox = TSPSolution(tour)
         end_time = time.time()
+        print("fancy", len(self._scenario.getCities()), " ", end_time - self.start_time, " ", christof_aprox.cost)
         results['cost'] = christof_aprox.cost
         results['time'] = end_time - self.start_time
         results['count'] = None
