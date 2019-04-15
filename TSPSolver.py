@@ -94,9 +94,11 @@ class TSPSolver:
             if bssf is None:
                 if cur_tour.cost < np.inf:
                     bssf = cur_tour
+                    foundTour = True
             else:
                 if cur_tour.cost < bssf.cost:
                     bssf = cur_tour
+                    foundTour = True
             start_node += 1
         self._global_bssf = bssf
         end_time = time.time()
