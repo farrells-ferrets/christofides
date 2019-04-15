@@ -22,6 +22,8 @@ else:
 class TSPSolver:
     def __init__(self, gui_view):
         self._scenario = None
+        self.start_time = 0
+        self.time_allowance = 0
 
     def setupWithScenario(self, scenario):
         self._scenario = scenario
@@ -321,42 +323,43 @@ class TSPSolver:
 
     def fancy(self, time_allowance=60.0):
         results = {}
-        start_time = time.time()
+        self.start_time = time.time()
+        self.time_allowance = time_allowance
         initial_matrix = self.generateInitialMatrix()
         print("initial matrix:")
-        print(time.time()-start_time)
+        print(time.time()-self.start_time)
         # print("{}\n".format(initial_matrix))
         min_tree = self.minTree(initial_matrix)
         print("min_tree:")
-        print(time.time()-start_time)
+        print(time.time()-self.start_time)
         # print("{}\n".format(min_tree))
         odd_verts = self.getOddVerts(min_tree)
         print("oddverts:")
-        print(time.time()-start_time)
+        print(time.time()-self.start_time)
         print("percent odd" + str(len(odd_verts) * 100 / initial_matrix.shape[0]))
-        perfect = self.perfectMatchNetwork(odd_verts,initial_matrix,min_tree)
-        # perfectGreedy = self.perfectMatchGreedy(odd_verts, initial_matrix.copy(), min_tree)
+        # perfect = self.perfectMatchNetwork(odd_verts,initial_matrix,min_tree)
+        perfect = self.perfectMatchGreedy(odd_verts, initial_matrix.copy())
         print("perfectGreedy:")
-        print(time.time()-start_time)
+        print(time.time()-self.start_time)
         multigraph, num_edges = self.multigraph(min_tree, perfect)
         # self.convert_to_dir_graph(multigraph)
         # num_edges = self.getEdges(multigraph)
         # if len(self.getOddVerts(multigraph)) != 0:
             # print("Uneven nodes!!!")
         print("multigraph:")
-        print(time.time()-start_time)
+        print(time.time()-self.start_time)
         # print("{}\n".format(multigraph))
         # print(num_edges)
         euclidGraph = self.hierholzer(multigraph, num_edges, len(initial_matrix))
         print("euclidian:")
-        print(time.time()-start_time)
+        print(time.time()-self.start_time)
         print(euclidGraph)
         tour, tracker = self.shortcut(euclidGraph)
         print(tracker)
         christof_aprox = TSPSolution(tour)
         end_time = time.time()
         results['cost'] = christof_aprox.cost
-        results['time'] = end_time - start_time
+        results['time'] = end_time - self.start_time
         results['count'] = None
         results['soln'] = christof_aprox
         results['max'] = None
@@ -457,12 +460,8 @@ class TSPSolver:
                         graph, v, curr_path, starting_vertex, node_count, edges_visited)
                     break
         return edges_visited
-
+    #Utilizes the base algorithm found in the Christofides module
     def perfectMatchNetwork(self, vertices, matrix, min_matrix):
-        # for i in range(matrix.shape[0]):
-            # for j in range(matrix.shape[0]):
-            #     if min_matrix[i][j] != 0 or min_matrix[j][i] != 0:
-            #         matrix[i][j] = np.inf
         newmatrix = np.zeros(min_matrix.shape)
         bipartite_set = [set(i) for i in itertools.combinations(set(vertices), len(vertices) // 2)]
         bipartite_graphs = self.bipartite_Graph(matrix, bipartite_set, vertices)
@@ -551,6 +550,8 @@ class TSPSolver:
                         vertices.remove(x)
                         vertices.remove(y)
                         newmatrix[x][y] = matrix[x][y]
+                        matrix[x] = np.inf
+                        matrix[y] = np.inf
                     #once a position has been considered, mark it as infinity so that the next one can be found
                     matrix[x][y] = math.inf
                     matrix[y][x] = math.inf
